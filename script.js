@@ -1,5 +1,5 @@
 // Neon Immortal - Particle System
-import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0";
+// MediaPipe Imports Removed
 
 
 // Configuration
@@ -37,8 +37,7 @@ async function init() {
     try {
         const container = document.getElementById('canvas-container');
 
-        // Initialize Hand Tracking
-        await initHandTracker();
+        // Hand Tracking Removed
 
 
         // Scene setup
@@ -71,8 +70,7 @@ async function init() {
         document.addEventListener('mousemove', onDocumentMouseMove, false);
         window.addEventListener('resize', onWindowResize, false);
 
-        // Start webcam
-        enableCam();
+        // Camera start removed
 
 
         // UI Setup
@@ -152,25 +150,18 @@ function createPhotoParticles() {
 function setupUI() {
     // Mode switching buttons removed
 
-
     const fusionBtn = document.getElementById('fusion-btn');
     fusionBtn.addEventListener('mousedown', () => {
         isExpanding = true;
-        document.getElementById('status-text').innerText = "FUSIÓN CRÍTICA";
-        document.getElementById('status-text').style.color = "#ff0000";
     });
 
     fusionBtn.addEventListener('mouseup', () => {
         isExpanding = false;
-        document.getElementById('status-text').innerText = "ESTABLE";
-        document.getElementById('status-text').style.color = CONFIG.colors.heart.getStyle();
     });
 
     fusionBtn.addEventListener('mouseleave', () => {
         if (isExpanding) {
             isExpanding = false;
-            document.getElementById('status-text').innerText = "ESTABLE";
-            document.getElementById('status-text').style.color = CONFIG.colors.heart.getStyle();
         }
     });
 
@@ -178,45 +169,15 @@ function setupUI() {
     fusionBtn.addEventListener('touchstart', (e) => {
         e.preventDefault(); // Prevent ghost clicks
         isExpanding = true;
-        document.getElementById('status-text').innerText = "FUSIÓN CRÍTICA";
-        document.getElementById('status-text').style.color = "#ff0000";
     }, { passive: false });
 
     fusionBtn.addEventListener('touchend', (e) => {
         e.preventDefault();
         isExpanding = false;
-        document.getElementById('status-text').innerText = "ESTABLE";
-        document.getElementById('status-text').style.color = CONFIG.colors.heart.getStyle();
     }, { passive: false });
 }
 
-function switchMode(mode) {
-    currentMode = mode;
-    console.log("Switching to " + mode);
 
-    // Update target color
-    let targetColor;
-    if (mode === 'sphere') targetColor = CONFIG.colors.sphere;
-    else if (mode === 'galaxy') targetColor = CONFIG.colors.galaxy;
-    else if (mode === 'liquid') targetColor = CONFIG.colors.liquid;
-    else if (mode === 'dna') targetColor = CONFIG.colors.dna;
-
-    // Tween colors (simple linear interpolation for now done in animate, 
-    // but here we just reset positions logic triggers)
-
-    // We update the status text
-    const statusText = document.getElementById('status-text');
-    statusText.innerText = "RECONFIGURANDO...";
-    setTimeout(() => {
-        statusText.innerText = "ESTABLE";
-    }, 1000);
-
-    // Optional: Tint particles based on mode? 
-    // Since we use textures, we could set material.color.
-    particleSystems.forEach(sys => {
-        sys.material.color.set(targetColor);
-    });
-}
 
 
 function animate() {
@@ -224,8 +185,7 @@ function animate() {
 
     time += 0.005;
 
-    // Detect gestures
-    detectGestures();
+    // Gestures removed
 
     render();
 
@@ -342,17 +302,8 @@ function render() {
 
     // Rotate the whole system
     if (mainGroup) {
-        if (isHandDetected) {
-            // Lerp towards hand target
-            const lerpFactor = 0.1;
-            mainGroup.rotation.y += (handRotationTarget - mainGroup.rotation.y) * lerpFactor;
-        } else {
-            // Automatic slow rotation
-            mainGroup.rotation.y += 0.002;
-        }
-
-        // Mouse tilt removed to keep heart shape upright
-        mainGroup.rotation.x = 0;
+        // Automatic slow rotation
+        mainGroup.rotation.y += 0.002;
     }
 
     renderer.render(scene, camera);
@@ -383,125 +334,7 @@ function onDocumentMouseMove(event) {
     mouseY = event.clientY;
 }
 
-// MediaPipe Hand Tracking Logic
-let handLandmarker = undefined;
-let webcamRunning = false;
-let lastVideoTime = -1;
-let results = undefined;
-const video = document.getElementById("webcam");
-
-async function initHandTracker() {
-    const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
-    );
-    handLandmarker = await HandLandmarker.createFromOptions(vision, {
-        baseOptions: {
-            modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
-            delegate: "GPU"
-        },
-        runningMode: "VIDEO",
-        numHands: 1
-    });
-}
-
-function enableCam() {
-    if (!handLandmarker) {
-        console.log("Wait for handLandmarker to load before clicking!");
-        return;
-    }
-
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
-            video.srcObject = stream;
-            video.addEventListener("loadeddata", predictWebcam);
-            webcamRunning = true;
-        });
-    }
-}
-
-let lastPredictionTime = -1;
-async function predictWebcam() {
-    // Throttle prediction to save battery/FPS on mobile (e.g. 15fps for tracking is enough)
-    const now = performance.now();
-    if (now - lastPredictionTime < 100) { // Limit to ~10 checks per second
-        window.requestAnimationFrame(predictWebcam);
-        return;
-    }
-    lastPredictionTime = now;
-
-    if (lastVideoTime !== video.currentTime) {
-        lastVideoTime = video.currentTime;
-        results = handLandmarker.detectForVideo(video, now);
-    }
-    window.requestAnimationFrame(predictWebcam);
-}
-
-
-function detectGestures() {
-    if (!results || !results.landmarks || results.landmarks.length === 0) {
-        isHandDetected = false;
-        return;
-    }
-
-    // We assume 1 hand for simplicity as configured
-    const landmarks = results.landmarks[0];
-
-
-    // Simple heuristic for closed fist vs open hand
-    // Measure distance from finger tips to wrist (landmark 0)
-    // Tips: 4 (Thumb), 8 (Index), 12 (Middle), 16 (Ring), 20 (Pinky)
-
-    const wrist = landmarks[0];
-    const tips = [8, 12, 16, 20]; // Identifying fingers (excluding thumb for simpler "fist" check sometimes)
-
-    let avgDist = 0;
-    tips.forEach(tipIdx => {
-        const tip = landmarks[tipIdx];
-        const dx = tip.x - wrist.x;
-        const dy = tip.y - wrist.y;
-        const dz = tip.z - wrist.z;
-        avgDist += Math.sqrt(dx * dx + dy * dy + dz * dz);
-    });
-    avgDist /= tips.length;
-
-    // Thresholds need tuning based on normalized coordinates (usually 0-1)
-    // Closed fist has tips very close to wrist/palm center.
-    // Open hand has tips far.
-
-    // Position X -> Rotation Y
-    // MediaPipe X is 0 (left) to 1 (right)
-    const handX = landmarks[0].x;
-    const SENSITIVITY = 4.0;
-    const targetY = (handX - 0.5) * -SENSITIVITY; // Invert to follow naturally
-
-    handRotationTarget = targetY;
-    isHandDetected = true;
-
-    //console.log(avgDist); // Debug if needed
-
-    const FIST_THRESHOLD = 0.3; // Tunable parameter
-
-    const wasExpanding = isExpanding;
-
-    if (avgDist < FIST_THRESHOLD) {
-        // Fist detected
-        isExpanding = true;
-    } else {
-        // Open hand
-        isExpanding = false;
-    }
-
-    // UI Feedback for state change
-    if (wasExpanding !== isExpanding) {
-        if (isExpanding) {
-            document.getElementById('status-text').innerText = "FUSIÓN GESTUAL";
-            document.getElementById('status-text').style.color = "#ff0000";
-        } else {
-            document.getElementById('status-text').innerText = "ESTABLE";
-            document.getElementById('status-text').style.color = CONFIG.colors.heart.getStyle();
-        }
-    }
-}
+// MediaPipe Logic Removed
 
 // Start
 // init() called at the end of module now, wait for DOM? 
