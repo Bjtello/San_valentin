@@ -2,12 +2,12 @@
 
 // Configuración
 const CONFIG = {
-    particleCount: 150, // Aumenté un poco para que se vea mejor
-    particleSize: 2.5,
+    particleCount: 150,
+    particleSize: 30, // Mucho más grande para celular
     colors: {
-        heart: new THREE.Color(0xffffff), // Blanco para respetar los colores de las fotos
+        heart: new THREE.Color(0xffffff),
     },
-    cameraZ: 40
+    cameraZ: 60
 };
 
 // Variables Globales
@@ -101,10 +101,11 @@ function createPhotoParticles() {
 
     photoPaths.forEach(path => {
         imageLoader.load(
-            path, 
+            path,
             (image) => {
-                // ÉXITO: Crear la textura
-                const texture = new THREE.CanvasTexture(maskImageToHeart(image));
+                // ÉXITO: Crear la textura cuadrada (sin recorte)
+                const texture = new THREE.CanvasTexture(image);
+                photoTextureMap.set(path, texture);
                 heartTextures.push(texture);
                 checkCompletion();
             },
@@ -112,82 +113,15 @@ function createPhotoParticles() {
             (err) => {
                 // ERROR: Avisar en consola pero NO detener la app
                 console.error("No se encontró la imagen: " + path);
-                checkCompletion(); // ¡Importante! Contamos el fallo para no quedarnos esperando
-            }
-        );
-    });
-}
-
-    photoPaths.forEach(path => {
-        imageLoader.load(
-            path,
-            // Al cargar bien:
-            (image) => {
-                const texture = new THREE.CanvasTexture(maskImageToHeart(image));
-                heartTextures.push(texture);
                 checkCompletion();
-            },
-            // Progreso (no usado):
-            undefined,
-            // Al fallar (ERROR):
-            (err) => {
-                console.warn(`No se encontró la imagen: ${path}. Saltando...`);
-                checkCompletion(); // Contamos el error para no bloquear la app
             }
         );
     });
 }
+// Mapa para guardar las texturas cargadas
+const photoTextureMap = new Map();
 
-// Recorta la imagen en forma de corazón usando Canvas 2D
-function maskImageToHeart(image) {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const size = 256;
-    canvas.width = size;
-    canvas.height = size;
 
-    // 1. Dibujar máscara de corazón
-    ctx.beginPath();
-    ctx.translate(size / 2, size / 2);
-    const s = size / 35;
-
-    ctx.moveTo(0, 0);
-    for (let t = 0; t <= Math.PI * 2; t += 0.05) {
-        const x = 16 * Math.pow(Math.sin(t), 3);
-        // Formula del corazón invertida en Y para Canvas
-        const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)); 
-        ctx.lineTo(x * s, y * s);
-    }
-    ctx.closePath();
-    ctx.fillStyle = "#ff0000";
-    ctx.fill();
-
-    // 2. Composición: Mantener solo lo que esté DENTRO del corazón
-    ctx.globalCompositeOperation = 'source-in';
-
-    // 3. Dibujar imagen centrada (Cover)
-    if (image) {
-        ctx.translate(-size / 2, -size / 2); // Resetear origen
-        const aspect = image.width / image.height;
-        let drawW, drawH, ox, oy;
-        
-        if (aspect > 1) {
-            drawH = size;
-            drawW = size * aspect;
-            ox = -(drawW - size) / 2;
-            oy = 0;
-        } else {
-            drawW = size;
-            drawH = size / aspect;
-            ox = 0;
-            oy = -(drawH - size) / 2;
-        }
-        ctx.drawImage(image, ox, oy, drawW, drawH);
-    }
-
-    ctx.globalCompositeOperation = 'source-over'; // Restaurar
-    return canvas;
-}
 
 // Distribuye las partículas en 3D
 function initParticles(textures) {
@@ -201,13 +135,13 @@ function initParticles(textures) {
             map: texture,
             transparent: true,
             opacity: 0.9,
-            depthTest: false, // Ayuda a que se mezclen mejor visualmente
-            blending: THREE.AdditiveBlending // O NormalBlending si quieres fotos sólidas
+            depthTest: false,
+            blending: THREE.NormalBlending
         });
 
         const sprite = new THREE.Sprite(material);
 
-        // Posición inicial aleatoria (explotarán hacia la forma de corazón)
+        // Posición inicial aleatoria
         const r = 10 + Math.random() * 20;
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos(2 * Math.random() - 1);
@@ -216,9 +150,8 @@ function initParticles(textures) {
         sprite.position.y = r * Math.sin(phi) * Math.sin(theta);
         sprite.position.z = r * Math.cos(phi);
 
-        // Escala aleatoria
-        const s = 3 + Math.random() * 3;
-        sprite.scale.set(s, s, 1);
+        // Escala inicial (será controlada en render)
+        sprite.scale.setScalar(CONFIG.particleSize);
 
         photoGroup.add(sprite);
     }
@@ -230,19 +163,19 @@ function setupUI() {
     if (!fusionBtn) return;
 
     // Mouse y Touch events para el botón
-    const startExpand = (e) => { 
-        if(e.cancelable) e.preventDefault(); 
-        isExpanding = true; 
+    const startExpand = (e) => {
+        if (e.cancelable) e.preventDefault();
+        isExpanding = true;
     };
-    const endExpand = (e) => { 
-        if(e.cancelable) e.preventDefault(); 
-        isExpanding = false; 
+    const endExpand = (e) => {
+        if (e.cancelable) e.preventDefault();
+        isExpanding = false;
     };
 
     fusionBtn.addEventListener('mousedown', startExpand);
     fusionBtn.addEventListener('mouseup', endExpand);
     fusionBtn.addEventListener('mouseleave', endExpand);
-    
+
     fusionBtn.addEventListener('touchstart', startExpand, { passive: false });
     fusionBtn.addEventListener('touchend', endExpand, { passive: false });
 }
@@ -253,7 +186,7 @@ function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    
+
     // Reajuste móvil si cambian la orientación
     if (window.innerWidth < window.innerHeight) {
         camera.position.z = 60;
@@ -278,7 +211,7 @@ function render() {
     if (!photoGroup) return; // Si no han cargado las fotos, no hacemos nada
 
     const count = photoGroup.children.length;
-    
+
     // Rotación suave con el mouse
     if (mainGroup) {
         mainGroup.rotation.y += 0.002; // Rotación automática
@@ -290,13 +223,13 @@ function render() {
     // Actualizar cada partícula
     for (let i = 0; i < count; i++) {
         const sprite = photoGroup.children[i];
-        
+
         // Matemáticas de la forma de corazón
         // Distribuimos los puntos usando un índice
         const pIndex = i;
-        
+
         // Distribución esférica básica mapeada al corazón
-        const tStat = (pIndex / count) * Math.PI * 2; 
+        const tStat = (pIndex / count) * Math.PI * 2;
         const pStat = (pIndex * 137.5) * (Math.PI / 180); // Ángulo áureo para evitar patrones de rejilla
 
         // Fórmula del corazón 3D
@@ -319,19 +252,19 @@ function render() {
 
         // Movimiento suave (Lerp) hacia la posición destino
         const speed = isExpanding ? 0.1 : 0.05;
-        
+
         sprite.position.x += (targetX - sprite.position.x) * speed;
         sprite.position.y += (targetY - sprite.position.y) * speed;
         sprite.position.z += (targetZ - sprite.position.z) * speed;
-        
+
         // Efecto visual al expandir
         if (isExpanding) {
-             sprite.material.opacity = 1.0;
-             sprite.scale.setScalar(CONFIG.particleSize * 1.5);
+            sprite.material.opacity = 1.0;
+            sprite.scale.setScalar(CONFIG.particleSize * 1.5);
         } else {
-             sprite.material.opacity = 0.9;
-             // Volver a tamaño normal
-             sprite.scale.setScalar(CONFIG.particleSize);
+            sprite.material.opacity = 0.9;
+            // Volver a tamaño normal
+            sprite.scale.setScalar(CONFIG.particleSize);
         }
     }
 
