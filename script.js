@@ -115,23 +115,32 @@ function createPhotoParticles() {
             console.log(`Carga finalizada. Éxito: ${heartTextures.length}/${photoPaths.length}`);
             // Fallback if NO images loaded
             if (heartTextures.length === 0) {
-                console.warn("No se cargaron imágenes, usando fallback rojo.");
-                const fallbackCanvas = maskImageToHeart(null);
-                heartTextures.push(new THREE.CanvasTexture(fallbackCanvas));
+                console.warn("Usando fallback rojo.");
+                const canvas = maskImageToHeart(null);
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.needsUpdate = true;
+                heartTextures.push(texture);
             }
             initParticles(heartTextures);
         }
     };
 
+    const timestamp = Date.now();
     photoPaths.forEach(path => {
+        const cacheBustedPath = `${path}?t=${timestamp}`;
         imageLoader.load(
-            path,
+            cacheBustedPath,
             (image) => {
                 try {
-                    const texture = new THREE.CanvasTexture(maskImageToHeart(image));
+                    const canvas = maskImageToHeart(image);
+                    const texture = new THREE.CanvasTexture(canvas);
+                    texture.minFilter = THREE.LinearFilter;
+                    texture.magFilter = THREE.LinearFilter;
+                    texture.needsUpdate = true;
                     heartTextures.push(texture);
+                    console.log("Imagen procesada: " + path);
                 } catch (e) {
-                    console.error("Error al procesar máscara de corazón:", e);
+                    console.error("Error al procesar máscara:", e);
                 }
                 checkCompletion();
             },
@@ -164,15 +173,15 @@ function maskImageToHeart(image) {
     }
     ctx.closePath();
 
-    // Fill mask with red first (visible if no image)
+    // Fill mask with red first
     ctx.fillStyle = "#ff0000";
     ctx.fill();
 
-    // Composite mode: kept pixels must utilize source-in
-    ctx.globalCompositeOperation = 'source-in';
-
     // 2. Draw Image (centered and cover)
     if (image) {
+        // Composite mode: kept pixels must utilize source-in
+        ctx.globalCompositeOperation = 'source-in';
+
         ctx.translate(-size / 2, -size / 2); // Reset origin
 
         const aspect = image.width / image.height;
@@ -190,10 +199,10 @@ function maskImageToHeart(image) {
         }
 
         ctx.drawImage(image, ox, oy, drawW, drawH);
-    }
 
-    // Restore default
-    ctx.globalCompositeOperation = 'source-over';
+        // Restore default
+        ctx.globalCompositeOperation = 'source-over';
+    }
 
     return canvas;
 }
