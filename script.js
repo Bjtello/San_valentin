@@ -105,76 +105,95 @@ function createPhotoParticles() {
 
     // Pre-load images and create heart textures
     const imageLoader = new THREE.ImageLoader();
+    imageLoader.setCrossOrigin('anonymous');
     const heartTextures = [];
 
-    let loadedCount = 0;
-    photoPaths.forEach(path => {
-        imageLoader.load(path, (image) => {
-            const texture = new THREE.CanvasTexture(maskImageToHeart(image));
-            heartTextures.push(texture);
-            loadedCount++;
-
-            // Initialize once all images are loaded (or gradually add)
-            // For simplicity, we just add one sprite per loaded image loop in main loop
-            // But we need to wait or just retry. 
-            // Better: Just start adding particles using whatever textures we have, 
-            // but since load is async, let's just create particles inside the load or wait.
-
-            // Re-think: We want thousands of particles using these 5 textures.
-            // Let's modify the loop to wait? No, let's just launch the loop after checking.
-            if (loadedCount === photoPaths.length) {
-                initParticles(heartTextures);
+    let processedCount = 0;
+    const checkCompletion = () => {
+        processedCount++;
+        if (processedCount === photoPaths.length) {
+            console.log(`Carga finalizada. Éxito: ${heartTextures.length}/${photoPaths.length}`);
+            // Fallback if NO images loaded
+            if (heartTextures.length === 0) {
+                console.warn("No se cargaron imágenes, usando fallback rojo.");
+                const fallbackCanvas = maskImageToHeart(null);
+                heartTextures.push(new THREE.CanvasTexture(fallbackCanvas));
             }
-        });
+            initParticles(heartTextures);
+        }
+    };
+
+    photoPaths.forEach(path => {
+        imageLoader.load(
+            path,
+            (image) => {
+                try {
+                    const texture = new THREE.CanvasTexture(maskImageToHeart(image));
+                    heartTextures.push(texture);
+                } catch (e) {
+                    console.error("Error al procesar máscara de corazón:", e);
+                }
+                checkCompletion();
+            },
+            undefined,
+            (err) => {
+                console.error("Error al cargar imagen " + path, err);
+                checkCompletion();
+            }
+        );
     });
 }
 
 function maskImageToHeart(image) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    const size = 256; // Standardize texture size
+    const size = 256;
     canvas.width = size;
     canvas.height = size;
 
     // 1. Draw Heart Shape Mask
     ctx.beginPath();
-    // Heart path logic scaling to size
-    // Heart formula:
-    // x = 16 sin^3(t)
-    // y = 13 cos(t) - 5 cos(2t) ...
-    // Or simplified bezier curves
     ctx.translate(size / 2, size / 2);
-    const s = size / 35; // scale factor
+    const s = size / 35;
 
     ctx.moveTo(0, 0);
-    // Draw heart path
     for (let t = 0; t <= Math.PI * 2; t += 0.05) {
         const x = 16 * Math.pow(Math.sin(t), 3);
         const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)); // Flip Y
         ctx.lineTo(x * s, y * s);
     }
     ctx.closePath();
-    ctx.clip(); // Restrict drawing to inside the heart
+
+    // Fill mask with red first (visible if no image)
+    ctx.fillStyle = "#ff0000";
+    ctx.fill();
+
+    // Composite mode: kept pixels must utilize source-in
+    ctx.globalCompositeOperation = 'source-in';
 
     // 2. Draw Image (centered and cover)
-    ctx.translate(-size / 2, -size / 2); // Reset origin
+    if (image) {
+        ctx.translate(-size / 2, -size / 2); // Reset origin
 
-    // Aspect ratio fill
-    const aspect = image.width / image.height;
-    let drawW, drawH, ox, oy;
-    if (aspect > 1) {
-        drawH = size;
-        drawW = size * aspect;
-        ox = -(drawW - size) / 2;
-        oy = 0;
-    } else {
-        drawW = size;
-        drawH = size / aspect;
-        ox = 0;
-        oy = -(drawH - size) / 2;
+        const aspect = image.width / image.height;
+        let drawW, drawH, ox, oy;
+        if (aspect > 1) {
+            drawH = size;
+            drawW = size * aspect;
+            ox = -(drawW - size) / 2;
+            oy = 0;
+        } else {
+            drawW = size;
+            drawH = size / aspect;
+            ox = 0;
+            oy = -(drawH - size) / 2;
+        }
+
+        ctx.drawImage(image, ox, oy, drawW, drawH);
     }
 
-    ctx.drawImage(image, ox, oy, drawW, drawH);
+    // Restore default
+    ctx.globalCompositeOperation = 'source-over';
 
     return canvas;
 }
