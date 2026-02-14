@@ -116,9 +116,8 @@ function maskImageToHeart(image) {
     ctx.closePath();
 
     if (!image) {
-        // Fallback: Corazón rojo si no hay imagen
-        ctx.fillStyle = "#ff0000";
-        ctx.fill();
+        // No mostrar nada si la imagen falla
+        ctx.clearRect(0, 0, size, size);
     } else {
         ctx.save();
         ctx.clip(); // Mask the image inside the heart
