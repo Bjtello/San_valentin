@@ -4,7 +4,7 @@
 
 // Configuration
 const CONFIG = {
-    particleCount: 1000,
+    particleCount: 100,
     particleSize: 2.5,   // Small points to form a smooth surface
     colors: {
         heart: new THREE.Color(0xffffff), // White to show original photos
@@ -103,46 +103,119 @@ function createPhotoParticles() {
         'assets/photos/photo5.jpg'
     ];
 
-    // Create multiple instances of photos floating around
-    const photoCount = CONFIG.particleCount; // Use config for consistent spacing
+    // Pre-load images and create heart textures
+    const imageLoader = new THREE.ImageLoader();
+    const heartTextures = [];
+
+    let loadedCount = 0;
+    photoPaths.forEach(path => {
+        imageLoader.load(path, (image) => {
+            const texture = new THREE.CanvasTexture(maskImageToHeart(image));
+            heartTextures.push(texture);
+            loadedCount++;
+
+            // Initialize once all images are loaded (or gradually add)
+            // For simplicity, we just add one sprite per loaded image loop in main loop
+            // But we need to wait or just retry. 
+            // Better: Just start adding particles using whatever textures we have, 
+            // but since load is async, let's just create particles inside the load or wait.
+
+            // Re-think: We want thousands of particles using these 5 textures.
+            // Let's modify the loop to wait? No, let's just launch the loop after checking.
+            if (loadedCount === photoPaths.length) {
+                initParticles(heartTextures);
+            }
+        });
+    });
+}
+
+function maskImageToHeart(image) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const size = 256; // Standardize texture size
+    canvas.width = size;
+    canvas.height = size;
+
+    // 1. Draw Heart Shape Mask
+    ctx.beginPath();
+    // Heart path logic scaling to size
+    // Heart formula:
+    // x = 16 sin^3(t)
+    // y = 13 cos(t) - 5 cos(2t) ...
+    // Or simplified bezier curves
+    ctx.translate(size / 2, size / 2);
+    const s = size / 35; // scale factor
+
+    ctx.moveTo(0, 0);
+    // Draw heart path
+    for (let t = 0; t <= Math.PI * 2; t += 0.05) {
+        const x = 16 * Math.pow(Math.sin(t), 3);
+        const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)); // Flip Y
+        ctx.lineTo(x * s, y * s);
+    }
+    ctx.closePath();
+    ctx.clip(); // Restrict drawing to inside the heart
+
+    // 2. Draw Image (centered and cover)
+    ctx.translate(-size / 2, -size / 2); // Reset origin
+
+    // Aspect ratio fill
+    const aspect = image.width / image.height;
+    let drawW, drawH, ox, oy;
+    if (aspect > 1) {
+        drawH = size;
+        drawW = size * aspect;
+        ox = -(drawW - size) / 2;
+        oy = 0;
+    } else {
+        drawW = size;
+        drawH = size / aspect;
+        ox = 0;
+        oy = -(drawH - size) / 2;
+    }
+
+    ctx.drawImage(image, ox, oy, drawW, drawH);
+
+    return canvas;
+}
+
+function initParticles(textures) {
+    const photoCount = CONFIG.particleCount;
 
     for (let i = 0; i < photoCount; i++) {
-        const path = photoPaths[i % photoPaths.length];
+        const texture = textures[i % textures.length]; // Cycle through loaded textures
 
-        textureLoader.load(path, (texture) => {
-            const material = new THREE.SpriteMaterial({
-                map: texture,
-                transparent: true,
-                opacity: 1.0,
-                blending: THREE.NormalBlending, // Crucial for photo visibility!
-                depthTest: false // Allow them to stack without z-fighting artifacts
-            });
-
-            const sprite = new THREE.Sprite(material);
-
-
-            // Random position within the main volume
-            const r = 15 + Math.random() * 20;
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.acos(2 * Math.random() - 1);
-
-            sprite.position.x = r * Math.sin(phi) * Math.cos(theta);
-            sprite.position.y = r * Math.sin(phi) * Math.sin(theta);
-            sprite.position.z = r * Math.cos(phi);
-
-            // Scale
-            const s = 4 + Math.random() * 3;
-            sprite.scale.set(s, s, 1);
-
-            // Store initial y for floating animation
-            sprite.userData = {
-                initialY: sprite.position.y,
-                speed: 0.02 + Math.random() * 0.03,
-                offset: Math.random() * Math.PI * 2
-            };
-
-            photoGroup.add(sprite);
+        const material = new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true,
+            opacity: 1.0,
+            blending: THREE.NormalBlending,
+            depthTest: false
         });
+
+        const sprite = new THREE.Sprite(material);
+
+        // Random position within the main volume
+        const r = 15 + Math.random() * 20;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+
+        sprite.position.x = r * Math.sin(phi) * Math.cos(theta);
+        sprite.position.y = r * Math.sin(phi) * Math.sin(theta);
+        sprite.position.z = r * Math.cos(phi);
+
+        // Scale
+        const s = 4 + Math.random() * 3;
+        sprite.scale.set(s, s, 1);
+
+        // Store properties
+        sprite.userData = {
+            initialY: sprite.position.y,
+            speed: 0.02 + Math.random() * 0.03,
+            offset: Math.random() * Math.PI * 2
+        };
+
+        photoGroup.add(sprite);
     }
 }
 
