@@ -1,7 +1,7 @@
 // Neon Immortal - VERSIÓN DEFINITIVA (Fotos Cuadradas + Rotación Automática)
 
 const CONFIG = {
-    particleCount: 150,
+    particleCount: 125,
     colors: {
         heart: new THREE.Color(0xffffff),
     },
