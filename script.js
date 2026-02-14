@@ -1,100 +1,80 @@
-// Neon Immortal - Particle System
-// MediaPipe Imports Removed
+/// Neon Immortal - Script Completo Corregido
 
-
-// Configuration
+// Configuración
 const CONFIG = {
-    particleCount: 40,
-    particleSize: 2.5,   // Small points to form a smooth surface
+    particleCount: 150, // Aumenté un poco para que se vea mejor
+    particleSize: 2.5,
     colors: {
-        heart: new THREE.Color(0xffffff), // White to show original photos
-        white: new THREE.Color(0xffffff)
+        heart: new THREE.Color(0xffffff), // Blanco para respetar los colores de las fotos
     },
-    cameraZ: 40 // Default for desktop
+    cameraZ: 40
 };
 
-// State
+// Variables Globales
 let scene, camera, renderer;
-let particleSystems = []; // Array to hold multiple point systems
-let photoGroup; // Group for photo particles
-let mainGroup; // Parent group for rotation
-let currentMode = 'heart';
+let photoGroup; // Grupo de las fotos
+let mainGroup;  // Grupo padre para rotación
 let isExpanding = false;
 let time = 0;
 
-let handRotationTarget = 0;
-let isHandDetected = false;
-
-
-// Mouse interaction
 let mouseX = 0;
 let mouseY = 0;
-const windowHalfX = window.innerWidth / 2;
-const windowHalfY = window.innerHeight / 2;
+let windowHalfX = window.innerWidth / 2;
+let windowHalfY = window.innerHeight / 2;
 
-// Initialize
+// --- INICIO ---
+init();
+
 async function init() {
     try {
         const container = document.getElementById('canvas-container');
 
-        // Hand Tracking Removed
-
-
-        // Scene setup
+        // 1. Escena
         scene = new THREE.Scene();
-        // Add some subtle fog for depth
         scene.fog = new THREE.FogExp2(0x000000, 0.02);
 
-        // Camera
+        // 2. Cámara
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.z = CONFIG.cameraZ;
 
-        // Initial Responsive Check
-        if (window.innerWidth / window.innerHeight < 1.0) {
-            camera.position.z = 80; // A bit further for better framing
-            scene.position.y = 0;
+        // Ajuste inicial para móviles
+        if (window.innerWidth < window.innerHeight) {
+            camera.position.z = 60; // Más lejos en celular
         }
 
-        // Renderer
+        // 3. Renderizador
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
         container.appendChild(renderer.domElement);
 
-        // Create Particles (Photos)
+        // 4. Crear Partículas (Fotos)
+        // Esta función ahora maneja errores de carga para que no se quede negro
         createPhotoParticles();
 
-
-        // Event Listeners
-
+        // 5. Eventos
         document.addEventListener('mousemove', onDocumentMouseMove, false);
         window.addEventListener('resize', onWindowResize, false);
-
-        // Camera start removed
-
-
-        // UI Setup
         setupUI();
 
-        // Animation Loop
+        // 6. Loop de animación
         animate();
+
     } catch (e) {
-        console.error("Initialization Error:", e);
-        const statusText = document.getElementById('status-text');
-        if (statusText) statusText.innerText = "ERROR DE INICIO";
-        alert("Error inicializando: " + e.message);
+        console.error("Error crítico:", e);
+        alert("Hubo un error al iniciar: " + e.message);
     }
 }
 
-
-
-
+// --- LÓGICA DE FOTOS (CORREGIDA) ---
 function createPhotoParticles() {
     photoGroup = new THREE.Group();
-    mainGroup = photoGroup; // Assign for global rotation
-    scene.add(photoGroup);
+    mainGroup = new THREE.Group();
+    mainGroup.add(photoGroup);
+    scene.add(mainGroup);
 
-    const textureLoader = new THREE.TextureLoader();
+    // IMPORTANTE: Asegúrate de que estos nombres coincidan EXACTAMENTE con tus archivos
+    // En GitHub Pages "Photo1.jpg" es diferente a "photo1.jpg"
     const photoPaths = [
         'assets/photos/photo1.jpg',
         'assets/photos/photo2.jpg',
@@ -103,54 +83,47 @@ function createPhotoParticles() {
         'assets/photos/photo5.jpg'
     ];
 
+    const imageLoader = new THREE.ImageLoader();
+    const heartTextures = [];
+    let processedCount = 0; // Cuenta intentos (exitosos o fallidos)
 
+    // Función interna para verificar si terminamos de intentar cargar todo
+    const checkCompletion = () => {
+        processedCount++;
+        // Si ya pasamos por todas las fotos de la lista
+        if (processedCount === photoPaths.length) {
+            if (heartTextures.length > 0) {
+                console.log(`Carga completada. Iniciando con ${heartTextures.length} imágenes.`);
+                initParticles(heartTextures);
+            } else {
+                console.error("Ninguna imagen pudo cargarse.");
+                // Opcional: Iniciar con cuadros rojos si todo falla para ver algo
+                alert("No se cargaron las imágenes. Verifica la carpeta assets/photos.");
+            }
+        }
+    };
 
-    // 1. Create particles immediately with a fallback (red heart)
-    const fallbackCanvas = maskImageToHeart(null);
-    const fallbackTexture = new THREE.CanvasTexture(fallbackCanvas);
-    fallbackTexture.needsUpdate = true;
-
-    initParticles(fallbackTexture);
-
-
-    const timestamp = Date.now();
-
-    photoPaths.forEach((path, photoIdx) => {
-        const cacheBustedPath = `${path}?t=${timestamp}`;
-        textureLoader.load(
-            cacheBustedPath,
-            (texture) => {
-                try {
-                    console.log("Cargada con éxito: " + path);
-                    const canvas = maskImageToHeart(texture.image);
-                    const photoTexture = new THREE.CanvasTexture(canvas);
-                    photoTexture.minFilter = THREE.LinearFilter;
-                    photoTexture.magFilter = THREE.LinearFilter;
-                    photoTexture.needsUpdate = true;
-
-                    updateParticleTextures(photoIdx, photoPaths.length, photoTexture);
-                } catch (e) {
-                    console.error("Error al procesar foto:", e);
-                }
+    photoPaths.forEach(path => {
+        imageLoader.load(
+            path,
+            // Al cargar bien:
+            (image) => {
+                const texture = new THREE.CanvasTexture(maskImageToHeart(image));
+                heartTextures.push(texture);
+                checkCompletion();
             },
+            // Progreso (no usado):
             undefined,
+            // Al fallar (ERROR):
             (err) => {
-                console.error("Fallo al cargar " + path, err);
+                console.warn(`No se encontró la imagen: ${path}. Saltando...`);
+                checkCompletion(); // Contamos el error para no bloquear la app
             }
         );
     });
 }
 
-function updateParticleTextures(photoIdx, totalPhotos, newTexture) {
-    if (!photoGroup) return;
-    photoGroup.children.forEach((sprite, i) => {
-        if (i % totalPhotos === photoIdx) {
-            sprite.material.map = newTexture;
-            sprite.material.needsUpdate = true;
-        }
-    });
-}
-
+// Recorta la imagen en forma de corazón usando Canvas 2D
 function maskImageToHeart(image) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -158,10 +131,7 @@ function maskImageToHeart(image) {
     canvas.width = size;
     canvas.height = size;
 
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-
-    ctx.save();
+    // 1. Dibujar máscara de corazón
     ctx.beginPath();
     ctx.translate(size / 2, size / 2);
     const s = size / 35;
@@ -169,25 +139,23 @@ function maskImageToHeart(image) {
     ctx.moveTo(0, 0);
     for (let t = 0; t <= Math.PI * 2; t += 0.05) {
         const x = 16 * Math.pow(Math.sin(t), 3);
-        const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+        // Formula del corazón invertida en Y para Canvas
+        const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)); 
         ctx.lineTo(x * s, y * s);
     }
     ctx.closePath();
+    ctx.fillStyle = "#ff0000";
+    ctx.fill();
 
-    if (!image) {
-        ctx.fillStyle = "#ff0000";
-        ctx.fill();
-    } else {
-        ctx.clip(); // Robust masking
+    // 2. Composición: Mantener solo lo que esté DENTRO del corazón
+    ctx.globalCompositeOperation = 'source-in';
 
-        // Fill white background for photo contrast
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(-size / 2, -size / 2, size, size);
-
-        ctx.translate(-size / 2, -size / 2);
-
+    // 3. Dibujar imagen centrada (Cover)
+    if (image) {
+        ctx.translate(-size / 2, -size / 2); // Resetear origen
         const aspect = image.width / image.height;
         let drawW, drawH, ox, oy;
+        
         if (aspect > 1) {
             drawH = size;
             drawW = size * aspect;
@@ -199,223 +167,70 @@ function maskImageToHeart(image) {
             ox = 0;
             oy = -(drawH - size) / 2;
         }
-
         ctx.drawImage(image, ox, oy, drawW, drawH);
-
-        // Add a subtle white border
-        ctx.translate(size / 2, size / 2);
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-        ctx.lineWidth = 8;
-        ctx.stroke();
     }
 
-    ctx.restore();
+    ctx.globalCompositeOperation = 'source-over'; // Restaurar
     return canvas;
 }
 
-function initParticles(defaultTexture) {
-    const photoCount = CONFIG.particleCount;
+// Distribuye las partículas en 3D
+function initParticles(textures) {
+    const count = CONFIG.particleCount;
 
-    for (let i = 0; i < photoCount; i++) {
+    for (let i = 0; i < count; i++) {
+        // Usar texturas cíclicamente
+        const texture = textures[i % textures.length];
+
         const material = new THREE.SpriteMaterial({
-            map: defaultTexture,
+            map: texture,
             transparent: true,
-            opacity: 1.0,
-            blending: THREE.NormalBlending,
-            depthTest: false
+            opacity: 0.9,
+            depthTest: false, // Ayuda a que se mezclen mejor visualmente
+            blending: THREE.AdditiveBlending // O NormalBlending si quieres fotos sólidas
         });
 
         const sprite = new THREE.Sprite(material);
 
-        const t = Math.random() * Math.PI * 2;
-        const p = (Math.random() - 0.5) * Math.PI;
+        // Posición inicial aleatoria (explotarán hacia la forma de corazón)
+        const r = 10 + Math.random() * 20;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
 
-        const scaleFactor = 2.0;
+        sprite.position.x = r * Math.sin(phi) * Math.cos(theta);
+        sprite.position.y = r * Math.sin(phi) * Math.sin(theta);
+        sprite.position.z = r * Math.cos(phi);
 
-        const x = 16 * Math.pow(Math.sin(t), 3);
-        const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
-
-        sprite.position.x = x * Math.cos(p * 0.5) * scaleFactor;
-        sprite.position.y = y * scaleFactor;
-        sprite.position.z = 15 * Math.sin(p) * scaleFactor;
-
-        // Scale - Large enough for mobile visibility
-        const s = 35 + Math.random() * 10;
+        // Escala aleatoria
+        const s = 3 + Math.random() * 3;
         sprite.scale.set(s, s, 1);
-
-        sprite.userData = {
-            initialY: sprite.position.y,
-            speed: 0.02 + Math.random() * 0.03,
-            offset: Math.random() * Math.PI * 2
-        };
 
         photoGroup.add(sprite);
     }
 }
 
-
+// --- INTERACCIÓN ---
 function setupUI() {
-    // Mode switching buttons removed
-
     const fusionBtn = document.getElementById('fusion-btn');
-    fusionBtn.addEventListener('mousedown', () => {
-        isExpanding = true;
-    });
+    if (!fusionBtn) return;
 
-    fusionBtn.addEventListener('mouseup', () => {
-        isExpanding = false;
-    });
+    // Mouse y Touch events para el botón
+    const startExpand = (e) => { 
+        if(e.cancelable) e.preventDefault(); 
+        isExpanding = true; 
+    };
+    const endExpand = (e) => { 
+        if(e.cancelable) e.preventDefault(); 
+        isExpanding = false; 
+    };
 
-    fusionBtn.addEventListener('mouseleave', () => {
-        if (isExpanding) {
-            isExpanding = false;
-        }
-    });
-
-    // Mobile touch support for button
-    fusionBtn.addEventListener('touchstart', (e) => {
-        e.preventDefault(); // Prevent ghost clicks
-        isExpanding = true;
-    }, { passive: false });
-
-    fusionBtn.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        isExpanding = false;
-    }, { passive: false });
+    fusionBtn.addEventListener('mousedown', startExpand);
+    fusionBtn.addEventListener('mouseup', endExpand);
+    fusionBtn.addEventListener('mouseleave', endExpand);
+    
+    fusionBtn.addEventListener('touchstart', startExpand, { passive: false });
+    fusionBtn.addEventListener('touchend', endExpand, { passive: false });
 }
-
-
-
-
-function animate() {
-    requestAnimationFrame(animate);
-
-    time += 0.005;
-
-    // Gestures removed
-
-    render();
-
-}
-
-function render() {
-    // Iterate over photo particles if they exist
-    if (photoGroup) {
-        const count = photoGroup.children.length;
-
-        // Determine target color (Heart Mode only)
-        let targetColor = CONFIG.colors.heart;
-
-        const lerpSpeed = 0.05;
-
-        for (let i = 0; i < count; i++) {
-            const sprite = photoGroup.children[i];
-            const globalI = i; // simple index
-
-            let x = sprite.position.x;
-            let y = sprite.position.y;
-            let z = sprite.position.z;
-
-            let targetX, targetY, targetZ;
-
-            // --- FORMATION LOGIC: HEART (DENSE SURFACE) ---
-
-            // We need a stable parametric surface that looks good with many points.
-            // Using a randomized distribution on the surface.
-
-            // Formula A (Classic 3D Heart):
-            // x = 16 sin^3(t) sin(p)
-            // y = 13 cos(t) - 5 cos(2t) - 2 cos(3t) - cos(4t)
-            // z = 6 sin^3(t) cos(p)
-
-            // We map 'globalI' to cover the surface.
-
-            const pIndex = globalI;
-
-            // t (0 to PI) - Vertical profile
-            // p (0 to 2PI) - Horizontal rotation
-
-            // To distribute evenly, we can use Golden Spiral on sphere and map it.
-            // Or just a dense grid.
-
-            const t = Math.acos(-1 + (2 * pIndex) / count); // 0 to PI (Scanning from bottom to top)
-            // Fix range for this specific formula: 
-            // The 2D profile requires t from 0 to 2PI.
-            // But 3D revolution usually takes half profile.
-
-            // Let's use a simpler random distribution that naturally clumps to the surface.
-            // t = 0..2PI
-            // p = 0..2PI
-
-            const tAngle = (pIndex * 0.1) + time * 0.05; // Dynamic rotation? No, static shape.
-
-            const tStat = (pIndex / count) * Math.PI * 2;
-            const pStat = (pIndex * 137.5) * (Math.PI / 180); // Golden angle scatter
-
-            // 3D Heart Formula
-            const hx = 16 * Math.pow(Math.sin(tStat), 3) * Math.sin(pStat);
-            const hy = 13 * Math.cos(tStat) - 5 * Math.cos(2 * tStat) - 2 * Math.cos(3 * tStat) - Math.cos(4 * tStat);
-            const hz = 6 * Math.pow(Math.sin(tStat), 3) * Math.cos(pStat);
-
-            const beatScale = 1.0 + Math.sin(time * 3) * 0.05;
-            const scale = 0.5 * beatScale;
-
-            targetX = hx * scale;
-            targetY = hy * scale;
-            targetZ = hz * scale;
-
-            // Slight noise
-            targetX += (Math.random() - 0.5) * 0.5;
-            targetY += (Math.random() - 0.5) * 0.5;
-            targetZ += (Math.random() - 0.5) * 0.5;
-
-
-
-            // --- INTERACTION: EXPANSION ---
-            if (isExpanding) {
-                const expansionFactor = 1.8; // Controlled expansion
-                const shake = Math.sin(time * 20 + globalI * 0.1) * 0.5; // Smooth wave instead of jitter
-                targetX = targetX * expansionFactor + shake;
-                targetY = targetY * expansionFactor + shake;
-                targetZ = targetZ * expansionFactor + shake;
-            }
-
-            // Move towards target
-            const speed = isExpanding ? 0.2 : 0.05;
-            sprite.position.x += (targetX - x) * speed;
-            sprite.position.y += (targetY - y) * speed;
-            sprite.position.z += (targetZ - z) * speed;
-
-            // Color updates
-            if (targetColor) {
-                sprite.material.color.lerp(targetColor, lerpSpeed);
-            }
-
-            // Scale update for expansion
-            if (isExpanding) {
-                // Pulse
-                const pulse = 1.0 + Math.sin(time * 10) * 0.2;
-                sprite.scale.setScalar(CONFIG.particleSize * 4.0 * pulse);
-            } else {
-                // Return to normal
-                const currentS = sprite.scale.x;
-                const targetS = CONFIG.particleSize; // Base size
-                // Lerp scale
-                const newS = currentS + (targetS - currentS) * 0.1;
-                sprite.scale.set(newS, newS, 1);
-            }
-        }
-    }
-
-    // Rotate the whole system
-    if (mainGroup) {
-        // Automatic slow rotation
-        mainGroup.rotation.y += 0.002;
-    }
-
-    renderer.render(scene, camera);
-}
-
 
 function onWindowResize() {
     windowHalfX = window.innerWidth / 2;
@@ -423,42 +238,87 @@ function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-
-    // Responsive Camera Adjustment
-    if (camera.aspect < 1.0) {
-        // Mobile Portrait
-        camera.position.z = 80;
-        scene.position.y = 0;
+    
+    // Reajuste móvil si cambian la orientación
+    if (window.innerWidth < window.innerHeight) {
+        camera.position.z = 60;
     } else {
-        // Desktop Landscape
         camera.position.z = CONFIG.cameraZ;
-        scene.position.y = 0;
     }
 }
 
 function onDocumentMouseMove(event) {
-    mouseX = event.clientX;
-    mouseY = event.clientY;
+    mouseX = (event.clientX - windowHalfX) * 0.5;
+    mouseY = (event.clientY - windowHalfY) * 0.5;
 }
 
-// MediaPipe Logic Removed
+// --- ANIMACIÓN ---
+function animate() {
+    requestAnimationFrame(animate);
+    time += 0.005;
+    render();
+}
 
-// Start
-// init() called at the end of module now, wait for DOM? 
-// Actually since we use type="module", we can just run it.
-init();
+function render() {
+    if (!photoGroup) return; // Si no han cargado las fotos, no hacemos nada
 
-// Mobile Touch Rotation
-document.addEventListener('touchmove', (e) => {
-    if (e.touches.length > 0) {
-        mouseX = e.touches[0].clientX - windowHalfX;
-        // mouseY = e.touches[0].clientY - windowHalfY; // Vertical rotation is disabled
+    const count = photoGroup.children.length;
+    
+    // Rotación suave con el mouse
+    if (mainGroup) {
+        mainGroup.rotation.y += 0.002; // Rotación automática
+        // Rotación interactiva sutil
+        mainGroup.rotation.x += (mouseY * 0.001 - mainGroup.rotation.x) * 0.05;
+        mainGroup.rotation.y += (mouseX * 0.001 - mainGroup.rotation.y) * 0.05;
     }
-}, { passive: true });
 
-document.addEventListener('touchstart', (e) => {
-    if (e.touches.length > 0) {
-        mouseX = e.touches[0].clientX - windowHalfX;
+    // Actualizar cada partícula
+    for (let i = 0; i < count; i++) {
+        const sprite = photoGroup.children[i];
+        
+        // Matemáticas de la forma de corazón
+        // Distribuimos los puntos usando un índice
+        const pIndex = i;
+        
+        // Distribución esférica básica mapeada al corazón
+        const tStat = (pIndex / count) * Math.PI * 2; 
+        const pStat = (pIndex * 137.5) * (Math.PI / 180); // Ángulo áureo para evitar patrones de rejilla
+
+        // Fórmula del corazón 3D
+        const hx = 16 * Math.pow(Math.sin(tStat), 3) * Math.sin(pStat);
+        const hy = 13 * Math.cos(tStat) - 5 * Math.cos(2 * tStat) - 2 * Math.cos(3 * tStat) - Math.cos(4 * tStat);
+        const hz = 6 * Math.pow(Math.sin(tStat), 3) * Math.cos(pStat);
+
+        // Latido
+        const beatScale = 0.8 + Math.sin(time * 3) * 0.05;
+        let scaleFactor = beatScale;
+
+        // Expansión al presionar botón
+        if (isExpanding) {
+            scaleFactor *= 1.8; // Explosión
+        }
+
+        let targetX = hx * scaleFactor;
+        let targetY = hy * scaleFactor;
+        let targetZ = hz * scaleFactor;
+
+        // Movimiento suave (Lerp) hacia la posición destino
+        const speed = isExpanding ? 0.1 : 0.05;
+        
+        sprite.position.x += (targetX - sprite.position.x) * speed;
+        sprite.position.y += (targetY - sprite.position.y) * speed;
+        sprite.position.z += (targetZ - sprite.position.z) * speed;
+        
+        // Efecto visual al expandir
+        if (isExpanding) {
+             sprite.material.opacity = 1.0;
+             sprite.scale.setScalar(CONFIG.particleSize * 1.5);
+        } else {
+             sprite.material.opacity = 0.9;
+             // Volver a tamaño normal
+             sprite.scale.setScalar(CONFIG.particleSize);
+        }
     }
-}, { passive: true });
 
+    renderer.render(scene, camera);
+}
