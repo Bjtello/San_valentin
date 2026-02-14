@@ -69,12 +69,10 @@ async function init() {
 // --- LÓGICA DE FOTOS (CORREGIDA) ---
 function createPhotoParticles() {
     photoGroup = new THREE.Group();
-    mainGroup = new THREE.Group();
-    mainGroup.add(photoGroup);
-    scene.add(mainGroup);
+    mainGroup = photoGroup; // Asignar para rotación global
+    scene.add(photoGroup);
 
-    // IMPORTANTE: Asegúrate de que estos nombres coincidan EXACTAMENTE con tus archivos
-    // En GitHub Pages "Photo1.jpg" es diferente a "photo1.jpg"
+    // Asegúrate de que estos nombres sean EXACTOS a los de tu carpeta (Mayúsculas importan)
     const photoPaths = [
         'assets/photos/photo1.jpg',
         'assets/photos/photo2.jpg',
@@ -85,23 +83,40 @@ function createPhotoParticles() {
 
     const imageLoader = new THREE.ImageLoader();
     const heartTextures = [];
-    let processedCount = 0; // Cuenta intentos (exitosos o fallidos)
+    let loadedCount = 0;
 
-    // Función interna para verificar si terminamos de intentar cargar todo
+    // Esta función revisa si ya terminamos, con o sin errores
     const checkCompletion = () => {
-        processedCount++;
-        // Si ya pasamos por todas las fotos de la lista
-        if (processedCount === photoPaths.length) {
+        loadedCount++;
+        // Si ya intentamos cargar todas (hayan fallado o no)
+        if (loadedCount === photoPaths.length) {
             if (heartTextures.length > 0) {
-                console.log(`Carga completada. Iniciando con ${heartTextures.length} imágenes.`);
+                console.log("Iniciando con " + heartTextures.length + " imágenes.");
                 initParticles(heartTextures);
             } else {
-                console.error("Ninguna imagen pudo cargarse.");
-                // Opcional: Iniciar con cuadros rojos si todo falla para ver algo
-                alert("No se cargaron las imágenes. Verifica la carpeta assets/photos.");
+                alert("ERROR: No se pudo cargar ninguna imagen. Revisa la carpeta assets/photos");
             }
         }
     };
+
+    photoPaths.forEach(path => {
+        imageLoader.load(
+            path, 
+            (image) => {
+                // ÉXITO: Crear la textura
+                const texture = new THREE.CanvasTexture(maskImageToHeart(image));
+                heartTextures.push(texture);
+                checkCompletion();
+            },
+            undefined, // Progreso (no lo usamos)
+            (err) => {
+                // ERROR: Avisar en consola pero NO detener la app
+                console.error("No se encontró la imagen: " + path);
+                checkCompletion(); // ¡Importante! Contamos el fallo para no quedarnos esperando
+            }
+        );
+    });
+}
 
     photoPaths.forEach(path => {
         imageLoader.load(
