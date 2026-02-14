@@ -1,4 +1,4 @@
-/// Neon Immortal - Script Completo Corregido
+// Neon Immortal - Script Completo Corregido
 
 // Configuración
 const CONFIG = {
