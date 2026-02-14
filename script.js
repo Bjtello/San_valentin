@@ -4,13 +4,13 @@
 
 // Configuration
 const CONFIG = {
-    particleCount: 100,
-    particleSize: 2.5,   // Small points to form a smooth surface
+    particleCount: 1000,
+    particleSize: 2.5,
     colors: {
-        heart: new THREE.Color(0xffffff), // White to show original photos
+        heart: new THREE.Color(0xffffff),
         white: new THREE.Color(0xffffff)
     },
-    cameraZ: 40 // Default for desktop
+    cameraZ: 40
 };
 
 // State
@@ -451,4 +451,6 @@ document.addEventListener('touchstart', (e) => {
         mouseX = e.touches[0].clientX - windowHalfX;
     }
 }, { passive: true });
-
+// Finalize and Start
+console.log("Antigravity: Bootstrap iniciada.");
+init();
