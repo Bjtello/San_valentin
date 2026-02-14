@@ -10,7 +10,7 @@ const CONFIG = {
         heart: new THREE.Color(0xffffff), // White to show original photos
         white: new THREE.Color(0xffffff)
     },
-    cameraZ: 40 // Zoom out a bit more
+    cameraZ: 40 // Default for desktop
 };
 
 // State
@@ -49,6 +49,12 @@ async function init() {
         // Camera
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.z = CONFIG.cameraZ;
+
+        // Initial Responsive Check
+        if (window.innerWidth / window.innerHeight < 1.0) {
+            camera.position.z = 100; // Zoom out
+            scene.position.y = 5;    // Move up
+        }
 
         // Renderer
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -359,6 +365,17 @@ function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+
+    // Responsive Camera Adjustment
+    if (camera.aspect < 1.0) {
+        // Mobile Portrait
+        camera.position.z = 100; // Zoom out significantly
+        scene.position.y = 5;    // Move up slightly to clear bottom button
+    } else {
+        // Desktop Landscape
+        camera.position.z = CONFIG.cameraZ;
+        scene.position.y = 0;
+    }
 }
 
 function onDocumentMouseMove(event) {
