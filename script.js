@@ -1,7 +1,7 @@
 // Neon Immortal - VERSIÓN DEFINITIVA (Fotos Cuadradas + Rotación Automática)
 
 const CONFIG = {
-    particleCount: 125,
+    particleCount: 150,
     colors: {
         heart: new THREE.Color(0xffffff),
     },
@@ -77,15 +77,77 @@ function createPhotoParticles() {
         textureLoader.load(
             `${path}?t=${timestamp}`,
             (texture) => {
-                console.log("Cargada: " + path);
-                texture.minFilter = THREE.LinearFilter;
-                texture.needsUpdate = true;
-                updateParticleTextures(photoIdx, photoPaths.length, texture);
+                try {
+                    console.log("Cargada: " + path);
+                    const canvas = maskImageToHeart(texture.image);
+                    const maskedTexture = new THREE.CanvasTexture(canvas);
+                    maskedTexture.minFilter = THREE.LinearFilter;
+                    maskedTexture.needsUpdate = true;
+                    updateParticleTextures(photoIdx, photoPaths.length, maskedTexture);
+                } catch (e) {
+                    console.error("Error procesando foto:", e);
+                }
             },
             undefined,
             (err) => console.warn("No cargó: " + path)
         );
     });
+}
+
+function maskImageToHeart(image) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const size = 256;
+    canvas.width = size;
+    canvas.height = size;
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.translate(size / 2, size / 2);
+    const s = size / 35;
+
+    ctx.moveTo(0, 0);
+    for (let t = 0; t <= Math.PI * 2; t += 0.05) {
+        const x = 16 * Math.pow(Math.sin(t), 3);
+        const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+        ctx.lineTo(x * s, y * s);
+    }
+    ctx.closePath();
+
+    if (!image) {
+        ctx.fillStyle = "#ff0000";
+        ctx.fill();
+    } else {
+        ctx.clip(); // Robust masking
+
+        // Fondo blanco para contraste
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(-size / 2, -size / 2, size, size);
+
+        ctx.translate(-size / 2, -size / 2);
+
+        const aspect = image.width / image.height;
+        let drawW, drawH, ox, oy;
+        if (aspect > 1) {
+            drawH = size;
+            drawW = size * aspect;
+            ox = -(drawW - size) / 2;
+            oy = 0;
+        } else {
+            drawW = size;
+            drawH = size / aspect;
+            ox = 0;
+            oy = -(drawH - size) / 2;
+        }
+
+        ctx.drawImage(image, ox, oy, drawW, drawH);
+    }
+
+    ctx.restore();
+    return canvas;
 }
 
 function updateParticleTextures(photoIdx, totalPhotos, newTexture) {
