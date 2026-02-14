@@ -4,7 +4,7 @@
 
 // Configuration
 const CONFIG = {
-    particleCount: 1000,
+    particleCount: 100,
     particleSize: 2.5,
     colors: {
         heart: new THREE.Color(0xffffff),
@@ -43,7 +43,8 @@ async function init() {
         // Scene setup
         scene = new THREE.Scene();
         // Add some subtle fog for depth
-        scene.fog = new THREE.FogExp2(0x000000, 0.02);
+        // Fog removed for better clarity of distant photos
+        // scene.fog = new THREE.FogExp2(0x000000, 0.02);
 
         // Camera
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -218,17 +219,24 @@ function initParticles(defaultTexture) {
 
         const sprite = new THREE.Sprite(material);
 
-        // Random position within the main volume
-        const r = 15 + Math.random() * 20;
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(2 * Math.random() - 1);
+        // Parametric Heart Shell Formula
+        // t: 0 to 2PI, p: -PI/2 to PI/2
+        const t = Math.random() * Math.PI * 2;
+        const p = (Math.random() - 0.5) * Math.PI; // Soft 3D thickness
 
-        sprite.position.x = r * Math.sin(phi) * Math.cos(theta);
-        sprite.position.y = r * Math.sin(phi) * Math.sin(theta);
-        sprite.position.z = r * Math.cos(phi);
+        const scaleFactor = 1.5; // Overall heart size
 
-        // Scale - Slightly larger for better visibility
-        const s = 6 + Math.random() * 4;
+        // Heart X/Y
+        const x = 16 * Math.pow(Math.sin(t), 3);
+        const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+
+        // Apply 3D puffiness by modulating with cos(p) or just using p for Z
+        sprite.position.x = x * Math.cos(p * 0.5) * scaleFactor;
+        sprite.position.y = y * scaleFactor;
+        sprite.position.z = 15 * Math.sin(p) * scaleFactor;
+
+        // Scale - Much larger for mobile visibility (Faces should be visible)
+        const s = 20 + Math.random() * 8;
         sprite.scale.set(s, s, 1);
 
         // Store properties
