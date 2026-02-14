@@ -6,7 +6,7 @@ const CONFIG = {
     colors: {
         heart: new THREE.Color(0xffffff), // Blanco para que no altere el color de la foto
     },
-    cameraZ: 60 
+    cameraZ: 60
 };
 
 // Variables Globales
@@ -44,7 +44,7 @@ async function init() {
 
         // 2. Cámara
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        
+
         // Ajuste de distancia de cámara
         if (isMobile) {
             camera.position.z = 85; // Alejamos un poco para que entre todo el corazón
@@ -77,7 +77,7 @@ async function init() {
 // --- CARGA Y RECORTE DE FOTOS ---
 function createPhotoParticles() {
     photoGroup = new THREE.Group();
-    mainGroup = new THREE.Group(); 
+    mainGroup = new THREE.Group();
     mainGroup.add(photoGroup);
     scene.add(mainGroup);
 
@@ -127,7 +127,7 @@ function createPhotoParticles() {
 function maskImageToHeart(image) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    const size = 256; 
+    const size = 256;
     canvas.width = size;
     canvas.height = size;
 
@@ -154,7 +154,7 @@ function maskImageToHeart(image) {
         ctx.translate(-size / 2, -size / 2);
         const aspect = image.width / image.height;
         let drawW, drawH, ox, oy;
-        
+
         if (aspect > 1) {
             drawH = size;
             drawW = size * aspect;
@@ -168,7 +168,7 @@ function maskImageToHeart(image) {
         }
         ctx.drawImage(image, ox, oy, drawW, drawH);
     }
-    
+
     ctx.globalCompositeOperation = 'source-over';
     return canvas;
 }
@@ -179,7 +179,7 @@ function initParticles(textures) {
 
     for (let i = 0; i < count; i++) {
         const texture = textures[i % textures.length];
-        
+
         const material = new THREE.SpriteMaterial({
             map: texture,
             transparent: true,
@@ -235,10 +235,10 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 
     isMobile = window.innerWidth < window.innerHeight;
-    
+
     // Actualizar tamaño si se gira el celular
     CONFIG.particleSize = isMobile ? 15.0 : 6.0;
-    
+
     if (photoGroup) {
         photoGroup.children.forEach(sprite => {
             sprite.scale.setScalar(CONFIG.particleSize);
@@ -265,9 +265,9 @@ function render() {
 
     const count = photoGroup.children.length;
 
-    // Rotación automática y con mouse
+    // Rotación automática (hacia la derecha) y con mouse
     if (mainGroup) {
-        mainGroup.rotation.y += 0.002;
+        mainGroup.rotation.y -= 0.01; // Giro a la derecha y más rápido
         mainGroup.rotation.x += (mouseY * 0.001 - mainGroup.rotation.x) * 0.05;
         mainGroup.rotation.y += (mouseX * 0.001 - mainGroup.rotation.y) * 0.05;
     }
