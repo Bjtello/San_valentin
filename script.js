@@ -58,12 +58,11 @@ function createPhotoParticles() {
         'assets/photos/images.png'
     ];
 
-    // 1. Crear partículas inmediatamente con fondo rojo (Fallback cuadrado)
+    // 1. Crear partículas inmediatamente transparentes (Evita cuadros rojos)
     const fallbackCanvas = document.createElement('canvas');
     fallbackCanvas.width = 2; fallbackCanvas.height = 2;
     const fctx = fallbackCanvas.getContext('2d');
-    fctx.fillStyle = '#ff0000';
-    fctx.fillRect(0, 0, 2, 2);
+    fctx.clearRect(0, 0, 2, 2);
     const fallbackTexture = new THREE.CanvasTexture(fallbackCanvas);
 
     initParticles(fallbackTexture);
@@ -74,7 +73,7 @@ function createPhotoParticles() {
 
     photoPaths.forEach((path, photoIdx) => {
         textureLoader.load(
-            `${path}?t=${timestamp}`,
+            path,
             (texture) => {
                 try {
                     console.log("Cargada: " + path);
@@ -117,17 +116,14 @@ function maskImageToHeart(image) {
     ctx.closePath();
 
     if (!image) {
+        // Fallback: Corazón rojo si no hay imagen
         ctx.fillStyle = "#ff0000";
         ctx.fill();
     } else {
-        ctx.clip(); // Robust masking
-
-        // Fondo blanco para contraste
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(-size / 2, -size / 2, size, size);
+        ctx.save();
+        ctx.clip(); // Mask the image inside the heart
 
         ctx.translate(-size / 2, -size / 2);
-
         const aspect = image.width / image.height;
         let drawW, drawH, ox, oy;
         if (aspect > 1) {
@@ -141,8 +137,8 @@ function maskImageToHeart(image) {
             ox = 0;
             oy = -(drawH - size) / 2;
         }
-
         ctx.drawImage(image, ox, oy, drawW, drawH);
+        ctx.restore();
     }
 
     ctx.restore();
