@@ -2,7 +2,7 @@
 
 // Configuración Base
 const CONFIG = {
-    particleCount: 150,
+    particleCount: 80,
     colors: {
         heart: new THREE.Color(0xffffff),
     },
