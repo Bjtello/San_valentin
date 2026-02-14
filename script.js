@@ -265,11 +265,9 @@ function render() {
 
     const count = photoGroup.children.length;
 
-    // Rotación automática (hacia la derecha) y con mouse
+    // Rotación automática pura (sin mouse)
     if (mainGroup) {
-        mainGroup.rotation.y -= 0.01; // Giro a la derecha y más rápido
-        mainGroup.rotation.x += (mouseY * 0.001 - mainGroup.rotation.x) * 0.05;
-        mainGroup.rotation.y += (mouseX * 0.001 - mainGroup.rotation.y) * 0.05;
+        mainGroup.rotation.y -= 0.01;
     }
 
     // Mover cada partícula
