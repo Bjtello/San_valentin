@@ -1,0 +1,232 @@
+:root {
+    --primary-color: #ff2a6d; /* Neon Red/Pink */
+    --secondary-color: #05d9e8; /* Neon Cyan */
+    --bg-color: #01012b; /* Deep Dark Blue/Black */
+    --glass-bg: rgba(10, 10, 30, 0.6);
+    --glass-border: 1px solid rgba(255, 42, 109, 0.3);
+    --font-main: 'Rajdhani', sans-serif;
+    --font-header: 'Orbitron', sans-serif;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: #000;
+    overflow: hidden;
+    font-family: var(--font-main);
+    color: #fff;
+}
+
+#canvas-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1;
+}
+
+.ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 10;
+    pointer-events: none; /* Let clicks pass through to canvas where no UI exists */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 20px;
+}
+
+/* Glassmorphism Panel Styles */
+.hud-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    border: var(--glass-border);
+    border-radius: 15px;
+    padding: 20px;
+    pointer-events: auto;
+    box-shadow: 0 0 20px rgba(255, 42, 109, 0.1);
+}
+
+.sidebar {
+    width: 300px;
+    margin-top: 40px;
+    margin-left: 20px;
+}
+
+.header {
+    margin-bottom: 25px;
+    text-align: center;
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 10px;
+}
+
+.neon-text-h1 {
+    font-family: var(--font-header);
+    font-weight: 900;
+    font-size: 1.8rem;
+    color: #fff;
+    text-shadow: 
+        0 0 5px #fff,
+        0 0 10px #fff,
+        0 0 20px var(--primary-color),
+        0 0 40px var(--primary-color);
+    letter-spacing: 2px;
+}
+
+.control-group {
+    margin-bottom: 25px;
+}
+
+.panel-header {
+    font-family: var(--font-header);
+    color: var(--secondary-color);
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-left: 3px solid var(--secondary-color);
+    padding-left: 10px;
+}
+
+.button-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+/* Neon Buttons */
+.neon-btn {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--primary-color);
+    color: #fff;
+    padding: 12px 5px;
+    font-family: var(--font-header);
+    font-size: 0.7rem;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    border-radius: 5px;
+}
+
+.neon-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 42, 109, 0.4), transparent);
+    transition: 0.5s;
+}
+
+.neon-btn:hover::before {
+    left: 100%;
+}
+
+.neon-btn:hover, .neon-btn.active {
+    background: var(--primary-color);
+    color: #000;
+    box-shadow: 0 0 15px var(--primary-color);
+    font-weight: bold;
+}
+
+/* System Status */
+.system-status {
+    font-family: var(--font-header);
+    font-size: 0.8rem;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.status-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+}
+
+.status-label {
+    color: #aaa;
+}
+
+.status-value {
+    color: var(--secondary-color);
+    font-weight: bold;
+}
+
+.blink {
+    animation: blinker 1.5s linear infinite;
+}
+
+@keyframes blinker {
+    50% { opacity: 0.4; }
+}
+
+/* Bottom Bar */
+.bottom-bar {
+    align-self: center;
+    margin-bottom: 40px;
+    padding: 0; /* Let button fill it */
+    border: none;
+    background: transparent;
+    box-shadow: none;
+}
+
+.action-btn {
+    background: transparent;
+    border: 2px solid var(--primary-color);
+    border-radius: 50px;
+    padding: 15px 40px;
+    font-family: var(--font-header);
+    font-size: 1.2rem;
+    color: #fff;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    box-shadow: 
+        0 0 10px var(--primary-color),
+        inset 0 0 10px var(--primary-color);
+}
+
+.action-btn:hover {
+    background: var(--primary-color);
+    box-shadow: 
+        0 0 30px var(--primary-color),
+        0 0 60px var(--primary-color);
+    text-shadow: 0 0 5px #000;
+}
+
+.action-btn:active {
+    transform: scale(0.95);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 90%;
+        margin: 20px auto;
+        height: auto;
+    }
+    
+    .button-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .bottom-bar {
+        margin-bottom: 20px;
+    }
+}

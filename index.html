@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Inmortal</title>
+    <link rel="stylesheet" href="style.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div id="canvas-container"></div>
+
+    <div class="ui-layer">
+        <div class="hud-panel sidebar">
+            <div class="header">
+                <h1 class="neon-text-h1">NEON INMORTAL</h1>
+            </div>
+
+
+
+            <div class="control-group">
+                <div class="panel-header">CONTROL NEURONAL</div>
+                <div class="system-status">
+                    <div class="status-row">
+                        <span class="status-label">EXPANSIÓN:</span>
+                        <span class="status-value" id="expansion-val">0%</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">ESTADO:</span>
+                        <span class="status-value blink" id="status-text">ESPERA</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="hud-panel bottom-bar">
+            <button class="action-btn" id="fusion-btn">
+                <div class="btn-glow"></div>
+                <span class="btn-text">ENERGÍA EXPANSIVA</span>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- MediaPipe Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js"
+        crossorigin="anonymous"></script>
+
+    <!-- Three.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="script.js" type="module"></script>
+
+    <!-- Hidden Video Element for Webcam -->
+    <video id="webcam" style="display:none;" autoplay playsinline></video>
+</body>
+
+</html>
