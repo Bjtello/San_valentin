@@ -52,7 +52,6 @@ function createPhotoParticles() {
     scene.add(mainGroup);
 
     const photoPaths = [
-        'assets/photos/foto_doctora.png',
         'assets/photos/d205c5a8c07194d85afb95921b3719bb.jpg',
         'assets/photos/feliz-san-valentin-150-imagenes-y-frases-para-enviar_795af111_240206130838_1280x720.jpg',
         'assets/photos/images.png'
