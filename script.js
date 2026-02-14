@@ -51,8 +51,8 @@ async function init() {
 
         // Initial Responsive Check
         if (window.innerWidth / window.innerHeight < 1.0) {
-            camera.position.z = 55; // Much closer for mobile
-            scene.position.y = 8;    // Move up higher
+            camera.position.z = 80; // A bit further for better framing
+            scene.position.y = 0;
         }
 
         // Renderer
@@ -103,44 +103,51 @@ function createPhotoParticles() {
         'assets/photos/photo5.jpg'
     ];
 
-    // Pre-load images and create heart textures
-    const imageLoader = new THREE.ImageLoader();
-    imageLoader.setCrossOrigin('anonymous');
-    const heartTextures = [];
 
-    let processedCount = 0;
-    const checkCompletion = () => {
-        processedCount++;
-        if (processedCount === photoPaths.length) {
-            console.log(`Carga finalizada. Éxito: ${heartTextures.length}/${photoPaths.length}`);
-            // Fallback if NO images loaded
-            if (heartTextures.length === 0) {
-                console.warn("No se cargaron imágenes, usando fallback rojo.");
-                const fallbackCanvas = maskImageToHeart(null);
-                heartTextures.push(new THREE.CanvasTexture(fallbackCanvas));
-            }
-            initParticles(heartTextures);
-        }
-    };
 
-    photoPaths.forEach(path => {
-        imageLoader.load(
-            path,
-            (image) => {
+    // 1. Create particles immediately with a fallback (red heart)
+    const fallbackCanvas = maskImageToHeart(null);
+    const fallbackTexture = new THREE.CanvasTexture(fallbackCanvas);
+    fallbackTexture.needsUpdate = true;
+
+    initParticles(fallbackTexture);
+
+
+    const timestamp = Date.now();
+
+    photoPaths.forEach((path, photoIdx) => {
+        const cacheBustedPath = `${path}?t=${timestamp}`;
+        textureLoader.load(
+            cacheBustedPath,
+            (texture) => {
                 try {
-                    const texture = new THREE.CanvasTexture(maskImageToHeart(image));
-                    heartTextures.push(texture);
+                    console.log("Cargada con éxito: " + path);
+                    const canvas = maskImageToHeart(texture.image);
+                    const photoTexture = new THREE.CanvasTexture(canvas);
+                    photoTexture.minFilter = THREE.LinearFilter;
+                    photoTexture.magFilter = THREE.LinearFilter;
+                    photoTexture.needsUpdate = true;
+
+                    updateParticleTextures(photoIdx, photoPaths.length, photoTexture);
                 } catch (e) {
-                    console.error("Error al procesar máscara de corazón:", e);
+                    console.error("Error al procesar foto:", e);
                 }
-                checkCompletion();
             },
             undefined,
             (err) => {
-                console.error("Error al cargar imagen " + path, err);
-                checkCompletion();
+                console.error("Fallo al cargar " + path, err);
             }
         );
+    });
+}
+
+function updateParticleTextures(photoIdx, totalPhotos, newTexture) {
+    if (!photoGroup) return;
+    photoGroup.children.forEach((sprite, i) => {
+        if (i % totalPhotos === photoIdx) {
+            sprite.material.map = newTexture;
+            sprite.material.needsUpdate = true;
+        }
     });
 }
 
@@ -151,7 +158,10 @@ function maskImageToHeart(image) {
     canvas.width = size;
     canvas.height = size;
 
-    // 1. Draw Heart Shape Mask
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    ctx.save();
     ctx.beginPath();
     ctx.translate(size / 2, size / 2);
     const s = size / 35;
@@ -159,21 +169,22 @@ function maskImageToHeart(image) {
     ctx.moveTo(0, 0);
     for (let t = 0; t <= Math.PI * 2; t += 0.05) {
         const x = 16 * Math.pow(Math.sin(t), 3);
-        const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)); // Flip Y
+        const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
         ctx.lineTo(x * s, y * s);
     }
     ctx.closePath();
 
-    // Fill mask with red first (visible if no image)
-    ctx.fillStyle = "#ff0000";
-    ctx.fill();
+    if (!image) {
+        ctx.fillStyle = "#ff0000";
+        ctx.fill();
+    } else {
+        ctx.clip(); // Robust masking
 
-    // Composite mode: kept pixels must utilize source-in
-    ctx.globalCompositeOperation = 'source-in';
+        // Fill white background for photo contrast
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(-size / 2, -size / 2, size, size);
 
-    // 2. Draw Image (centered and cover)
-    if (image) {
-        ctx.translate(-size / 2, -size / 2); // Reset origin
+        ctx.translate(-size / 2, -size / 2);
 
         const aspect = image.width / image.height;
         let drawW, drawH, ox, oy;
@@ -190,22 +201,24 @@ function maskImageToHeart(image) {
         }
 
         ctx.drawImage(image, ox, oy, drawW, drawH);
+
+        // Add a subtle white border
+        ctx.translate(size / 2, size / 2);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+        ctx.lineWidth = 8;
+        ctx.stroke();
     }
 
-    // Restore default
-    ctx.globalCompositeOperation = 'source-over';
-
+    ctx.restore();
     return canvas;
 }
 
-function initParticles(textures) {
+function initParticles(defaultTexture) {
     const photoCount = CONFIG.particleCount;
 
     for (let i = 0; i < photoCount; i++) {
-        const texture = textures[i % textures.length]; // Cycle through loaded textures
-
         const material = new THREE.SpriteMaterial({
-            map: texture,
+            map: defaultTexture,
             transparent: true,
             opacity: 1.0,
             blending: THREE.NormalBlending,
@@ -214,11 +227,10 @@ function initParticles(textures) {
 
         const sprite = new THREE.Sprite(material);
 
-        // Parametric Heart Shell Formula (Hollow)
         const t = Math.random() * Math.PI * 2;
-        const p = (Math.random() - 0.5) * Math.PI; // 3D depth
+        const p = (Math.random() - 0.5) * Math.PI;
 
-        const scaleFactor = 2.0; // Spread them out!
+        const scaleFactor = 2.0;
 
         const x = 16 * Math.pow(Math.sin(t), 3);
         const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
@@ -231,7 +243,6 @@ function initParticles(textures) {
         const s = 35 + Math.random() * 10;
         sprite.scale.set(s, s, 1);
 
-        // Store properties
         sprite.userData = {
             initialY: sprite.position.y,
             speed: 0.02 + Math.random() * 0.03,
@@ -416,8 +427,8 @@ function onWindowResize() {
     // Responsive Camera Adjustment
     if (camera.aspect < 1.0) {
         // Mobile Portrait
-        camera.position.z = 55;
-        scene.position.y = 8;
+        camera.position.z = 80;
+        scene.position.y = 0;
     } else {
         // Desktop Landscape
         camera.position.z = CONFIG.cameraZ;
