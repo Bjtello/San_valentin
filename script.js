@@ -4,7 +4,7 @@ import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@m
 
 // Configuration
 const CONFIG = {
-    particleCount: 100, // High density to define the shape clearly
+    particleCount: 1000,
     particleSize: 2.5,   // Small points to form a smooth surface
     colors: {
         heart: new THREE.Color(0xffffff), // White to show original photos
@@ -402,10 +402,19 @@ function enableCam() {
     }
 }
 
+let lastPredictionTime = -1;
 async function predictWebcam() {
+    // Throttle prediction to save battery/FPS on mobile (e.g. 15fps for tracking is enough)
+    const now = performance.now();
+    if (now - lastPredictionTime < 100) { // Limit to ~10 checks per second
+        window.requestAnimationFrame(predictWebcam);
+        return;
+    }
+    lastPredictionTime = now;
+
     if (lastVideoTime !== video.currentTime) {
         lastVideoTime = video.currentTime;
-        results = handLandmarker.detectForVideo(video, performance.now());
+        results = handLandmarker.detectForVideo(video, now);
     }
     window.requestAnimationFrame(predictWebcam);
 }
